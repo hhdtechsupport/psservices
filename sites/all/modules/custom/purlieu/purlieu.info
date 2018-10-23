@@ -1,0 +1,9 @@
+name = Purlieu
+description = Manages purlieu information.
+core = 7.x
+configure = admin/structure/purlieu
+dependencies[] = field
+dependencies[] = entity
+files[] = purlieu.info.inc
+files[] = purlieu.class.inc
+package = Custom

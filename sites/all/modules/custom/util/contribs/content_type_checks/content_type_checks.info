@@ -1,0 +1,12 @@
+name = Content Type Checks
+description = Content Type Checks to warn admins about potential problems.
+core = 7.x
+package = Util
+dependencies[] = util
+dependencies[] = node
+
+; Information added by Drupal.org packaging script on 2018-05-17
+version = "7.x-1.1+2-dev"
+core = "7.x"
+project = "util"
+datestamp = "1526578088"

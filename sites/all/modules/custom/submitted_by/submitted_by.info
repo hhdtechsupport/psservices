@@ -1,0 +1,5 @@
+name = Submitted By
+description = Customize the Submitted by text on a per-node-type basis.
+dependencies[] = token
+dependencies[] = field
+core = 7.x

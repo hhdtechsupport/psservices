@@ -1,0 +1,55 @@
+<?php
+/**
+ * @file
+ * Installation / Deinstallation functions for Fisma_User.
+ */
+
+/**
+ * Implements hook_enable().
+ */
+function fisma_user_enable() {
+  if (module_exists('government_warning')) {
+    drupal_set_message(t('The Government_Warning module is being replaced by the FISMA_User module.'));
+    $warning_text = variable_get('government_warning_text', NULL);
+    variable_set('fisma_user_login_warning_text', $warning_text);
+    module_disable(array('government_warning'), FALSE);
+  }
+  if (module_exists('flood_control')) {
+    drupal_set_message(t('The Flood_Control module is being replaced by the FISMA_User module.'));
+    module_disable(array('flood_control'), FALSE);
+  }
+  if (module_exists('inactive_user')) {
+    drupal_set_message(t('The Inactive_User module and the FISMA_User module may not need to coexist.'));
+  }
+
+  drupal_set_message(t('The FISMA_User module has been enabled. You may configure it <a href="@config">here</a>.',
+    array('@config' => '/admin/config/people/fisma')));
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function fisma_user_uninstall() {
+  variable_del('fisma_user_notify_role');
+  variable_del('fisma_user_create_subject');
+  variable_del('fisma_user_create_body');
+  variable_del('fisma_user_update_subject');
+  variable_del('fisma_user_update_body');
+  variable_del('fisma_user_delete_subject');
+  variable_del('fisma_user_delete_body');
+  variable_del('user_failed_login_identifier_uid_only');
+  variable_del('user_failed_login_ip_limit');
+  variable_del('user_failed_login_ip_window');
+  variable_del('user_failed_login_user_limit');
+  variable_del('user_failed_login_user_window');
+  variable_del('contact_threshold_limit');
+  variable_del('contact_threshold_window');
+  variable_del('fisma_user_warning_on_login');
+  variable_del('fisma_user_warning_position');
+  variable_del('fisma_user_login_warning_text');
+  variable_del('fisma_user_log_deactivation');
+  variable_del('fisma_user_inactive_users_interval');
+  variable_del('fisma_user_default_account_lifetime');
+  variable_del('fisma_user_inactive_cron_interval');
+  variable_del('fisma_user_inactive_cron_limit');
+}

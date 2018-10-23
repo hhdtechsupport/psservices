@@ -1,0 +1,6 @@
+name = Computed Field Order
+description = Allow re-ordering the field computations.
+core = 7.x
+configure = 'admin/config/content/computed_field_order'
+dependencies[] = computed_field
+package = Fields

@@ -1,0 +1,72 @@
+<?php
+
+/**
+ * @file
+ * Change enabled modules based on current environment.
+ */
+
+/**
+ * Implements hook_init().
+ */
+function habitat_init() {
+  habitat_ensure_habitat();
+}
+
+function habitat_ensure_habitat() {
+  $variable = variable_get('habitat_variable', 'fetcher_environment');
+  if ($habitat = variable_get($variable, FALSE)) {
+    $clear_caches = habitat_ensure_modules_disabled($habitat);
+    $clear_caches |= habitat_ensure_modules_enabled($habitat);
+    if ($clear_caches) {
+      system_flush_caches();
+    }
+  }
+}
+
+function habitat_ensure_modules_disabled($habitat) {
+  $disabled_modules = variable_get('habitat_disable_' . $habitat, array());
+  $ret = FALSE;
+  if (count($disabled_modules)) {
+    foreach ($disabled_modules as $module) {
+      if (module_exists($module)) {
+        $ret = TRUE;
+        module_disable(array($module), FALSE);
+        watchdog('habitat', '%module was disabled for the %habitat habitat', array('%module' => $module, '%habitat' => $habitat));
+      }
+    }
+  }
+  return $ret;
+}
+
+function habitat_ensure_modules_enabled($habitat) {
+  $enabled_modules = variable_get('habitat_enable_' . $habitat, array());
+  $ret = FALSE;
+  if (count($enabled_modules)) {
+    foreach ($enabled_modules as $module) {
+      if ($module && !module_exists($module)) {
+        $ret = TRUE;
+        module_enable(array($module));
+        watchdog('habitat', '%module was enabled for the %habitat habitat', array('%module' => $module, '%habitat' => $habitat));
+      }
+    }
+  }
+  return $ret;
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function habitat_requirements($phase) {
+  if ($phase == 'runtime') {
+    $variable = variable_get('habitat_variable', 'fetcher_environment');
+    $habitat = variable_get($variable, FALSE);
+    return array(
+      'habitat' => array(
+        'title' => 'Habitat',
+        'value' => ($habitat ? $habitat : 'Not defined'),
+        'description' => 'The habitat defined on the current environment.',
+        'severity' => ($habitat ? REQUIREMENT_OK : REQUIREMENT_WARNING),
+      )
+    );
+  }
+}

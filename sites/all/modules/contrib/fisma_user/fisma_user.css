@@ -1,0 +1,57 @@
+/**
+/**
+ * @file
+ * Style sheet for FISMA User module.
+ */
+
+input[type=radio]:checked + label {
+  border: 1px dotted #000000;
+  font-weight: bold;
+  padding: 0 6px;
+}
+
+#fisma-user-inactive-users-settings-form table caption,
+#fisma-user-logging-settings-form table caption {
+  font-size: 1.35em;
+  margin-bottom: .5em;
+}
+
+#fisma-user-inactive-users-settings-form table,
+#fisma-user-logging-settings-form table {
+  margin-bottom: 2em;
+  width: auto;
+}
+
+table#fisma-user-logging-settings-form .form-type-checkbox {
+  text-align: center;
+}
+
+#fisma-user-flood-control-settings-form fieldset {
+  clear: both;
+}
+
+#fisma-user-flood-control-settings-form fieldset .form-item {
+  float: left;
+  min-width: 16em;
+}
+
+
+#fisma-user-login-warning-settings-form .form-item-fisma-user-warning-on-login .form-type-radio,
+#fisma-user-inactive-users-settings-form .form-item-fisma-user-log-deactivation .form-type-radio,
+#fisma-user-flood-control-settings-form .form-type-select,
+#fisma-user-flood-control-settings-form .form-item-user-failed-login-identifier-uid-only .form-type-radio {
+  margin-right: 2em !important;
+}
+
+#fisma-user-inactive-users-settings-form .form-item-fisma-user-inactive-cron-limit .form-type-radio,
+#fisma-user-inactive-users-settings-form .form-item-fisma-user-default-account-lifetime .form-type-radio,
+#fisma-user-inactive-users-settings-form .form-item-fisma-user-inactive-cron-interval .form-type-radio {
+  float: left;
+  width: 21%;
+}
+
+#fisma-user-inactive-users-settings-form .form-item-fisma-user-inactive-cron-limit .description,
+#fisma-user-inactive-users-settings-form .form-item-fisma-user-default-account-lifetime .description,
+#fisma-user-inactive-users-settings-form .form-item-fisma-user-inactive-cron-interval .description {
+  clear: both;
+}

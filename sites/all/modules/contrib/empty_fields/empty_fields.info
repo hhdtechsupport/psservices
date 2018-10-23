@@ -1,0 +1,17 @@
+name = Empty Fields
+description = Provides options for displaying empty fields.
+core = 7.x
+package = Fields
+files[] = plugins/empty_fields_handler.inc
+files[] = plugins/empty_fields_handler_text.inc
+files[] = plugins/empty_fields_handler_label.inc
+
+dependencies[] = field
+dependencies[] = field_formatter_settings
+
+; Information added by Drupal.org packaging script on 2017-06-08
+version = "7.x-2.0+4-dev"
+core = "7.x"
+project = "empty_fields"
+datestamp = "1496918044"
+

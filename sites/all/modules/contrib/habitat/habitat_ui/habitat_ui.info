@@ -1,0 +1,4 @@
+name = Habitat UI
+core = 7.x
+dependencies[] = habitat
+configure = admin/config/development/habitat

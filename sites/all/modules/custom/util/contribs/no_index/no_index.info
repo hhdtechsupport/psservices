@@ -1,0 +1,10 @@
+name = No index
+description = "Prevent search indexing."
+core = 7.x
+dependencies[] = util
+package = Util
+; Information added by Drupal.org packaging script on 2018-05-17
+version = "7.x-1.1+2-dev"
+core = "7.x"
+project = "util"
+datestamp = "1526578088"

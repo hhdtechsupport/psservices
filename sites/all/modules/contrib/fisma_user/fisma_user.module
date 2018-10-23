@@ -1,0 +1,504 @@
+<?php
+/**
+ * @file
+ * FISMA User functions.
+ */
+
+define ('FISMA_USER_ADMIN_PERM', 'administer site configuration');
+
+/**
+ * Implements hook_help($path, $args).
+ */
+function fisma_user_help($path, $args) {
+  switch ($path) {
+    case 'admin/help#fisma_user':
+      return '<p>'
+        . t('The FISMA User module provides several functions that are required by the Federal Information Security Management Act (FISMA).')
+        . '</p>';
+
+    case 'admin/config/people/fisma':
+      return '<p>'
+        . t('The Federal Information Security Management Act (FISMA) is United States legislation that defines a comprehensive framework to protect government information, operations, and assets against natural or man-made threats. FISMA was signed into law as part of the Electronic Government (e-Gov) Act of 2002.')
+        . ' '
+        . t('Among the rules are requirements to log all user account changes and deletions and to notify appropriate parties.')
+        . '</p>';
+
+    case 'admin/config/people/fisma/flood':
+      return '<p>'
+        . t('The Federal Information Security Management Act (FISMA) is United States legislation that defines a comprehensive framework to protect government information, operations, and assets against natural or man-made threats. FISMA was signed into law as part of the Electronic Government (e-Gov) Act of 2002.')
+        . ' '
+        . t('Among the rules are requirements to block a user account if there are <b>X</b> failed login attempts with <b>Y</b> minutes.')
+        . ' '
+        . t('You may similarly block a specific IP address regardless of which user names are being attempted.')
+        . '</p>';
+
+    case 'admin/config/people/fisma/warning':
+      return '<p>'
+        . t('The Federal Information Security Management Act (FISMA) is United States legislation that defines a comprehensive framework to protect government information, operations, and assets against natural or man-made threats. FISMA was signed into law as part of the Electronic Government (e-Gov) Act of 2002.')
+        . ' '
+        . t('Among the rules are requirements to display on login pages a notification as to acceptable use, possible monitoring, and other notices as may be required by the task order.')
+        . '</p>';
+
+    case 'admin/config/people/fisma/inactive':
+      return '<p>'
+        . t('The Federal Information Security Management Act (FISMA) is United States legislation that defines a comprehensive framework to protect government information, operations, and assets against natural or man-made threats. FISMA was signed into law as part of the Electronic Government (e-Gov) Act of 2002.')
+        . ' '
+        . t('Among the rules are requirements to be able to set an expiration date on user accounts and to automatically disable accounts that have not been used in X days.')
+        . '</p>';
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function fisma_user_menu() {
+  $items = array();
+
+  $items['admin/config/people/fisma'] = array(
+    'title' => 'FISMA User settings',
+    'access arguments' => array(FISMA_USER_ADMIN_PERM),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fisma_user_logging_settings_form'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'fisma_user.admin.inc',
+    );
+
+  $items['admin/config/people/fisma/logging'] = array(
+    'title' => 'Activity Logging',
+    'access arguments' => array(FISMA_USER_ADMIN_PERM),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fisma_user_logging_settings_form'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'file' => 'fisma_user.admin.inc',
+    );
+
+  $items['admin/config/people/fisma/flood'] = array(
+    'title' => 'Failed Logins',
+    'access arguments' => array(FISMA_USER_ADMIN_PERM),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fisma_user_flood_control_settings_form'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'fisma_user.admin.inc',
+    );
+
+  $items['admin/config/people/fisma/warning'] = array(
+    'title' => 'Govt. Warning',
+    'access arguments' => array(FISMA_USER_ADMIN_PERM),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fisma_user_login_warning_settings_form'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'fisma_user.admin.inc',
+    );
+
+  $items['admin/config/people/fisma/inactive'] = array(
+    'title' => 'Inactive Users',
+    'access arguments' => array(FISMA_USER_ADMIN_PERM),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fisma_user_inactive_users_settings_form'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'fisma_user.admin.inc',
+    );
+
+  return $items;
+}
+
+/**
+ * Implements hook_user_insert().
+ * Track user creation.
+ */
+function fisma_user_user_insert(&$edit, $account, $category) {
+//  drupal_set_message(__FUNCTION__ . " $account->name $account->uid.");
+  fisma_user_notify('create', $account);
+}
+
+/**
+ * Implements hook_user_update().
+ * Track user modification.
+ */
+function fisma_user_user_update(&$edit, $account, $category) {
+//  drupal_set_message(__FUNCTION__ . " $account->name $account->uid.");
+  fisma_user_notify('update', $account);
+}
+
+/**
+ * Implements hook_user_delete().
+ * Track user deletion.
+ */
+function fisma_user_user_delete($account) {
+//  drupal_set_message(__FUNCTION__ . " $account->name $account->uid.");
+  fisma_user_notify('delete', $account);
+}
+
+/**
+ * Notify chosen people of account action.
+ */
+function fisma_user_notify($op, $account) {
+  global $user;
+
+  $args = array(
+    '@op' => ucwords($op),
+    '!user' => l(format_username($user), '/user/' . $user->uid),
+    '@name' => format_username($account),
+    );
+  if ($_GET['q'] == 'cron.php') {
+    $args['!user'] = t('Cron run');
+  }
+
+  watchdog('FISMA User',
+    '@op user "@name" account by !user',
+    $args,
+    WATCHDOG_NOTICE,
+    $link = l(t('view'), '/user/' . $account->uid)
+    );
+
+  // Figure out who is to get the email.
+  $notifications = variable_get('fisma_user_notify_role', array());
+
+  // Make sure this is set up.
+  if (isset($notifications[$op])) {
+    $addresses = _fisma_user_notify_list($notifications[$op]);
+
+    if ($addresses) {
+      $params = array(
+        '@actor' => ($_GET['q'] == 'cron.php' ? t('Cron run') : format_username($user)),
+        '!user' => l(format_username($account), '/user/' . $account->uid),
+        '@name' => format_username($account),
+        );
+
+      // Send the email.
+      drupal_mail('fisma_user',
+        $op,
+        $addresses,
+        language_default(),
+        $params);
+
+    }
+  }
+}
+
+/**
+ * Helper function to get email address list.
+ *
+ * @param $rids - array of role ids to get email addresses for.
+ *
+ * @return list of email addresses ready for drupal_mail()
+ *      or FALSE if there are no roles.
+ */
+function _fisma_user_notify_list($rids) {
+  // Make sure the list of roles is clean.
+  $notify = array_filter($rids);
+  if (empty($notify)) {
+    return FALSE;
+  }
+
+  // Get all the user accounts in those roles.
+  $address_list = db_select('users_roles', 'ur');
+  $address_list->join('users', 'u', 'u.uid = ur.uid');
+  $address_list->fields('u', array('uid', 'mail'))
+    ->condition('u.status', 1)
+    ->condition('ur.rid', $notify, 'IN');
+
+  $addresses = $address_list->execute()->fetchAllKeyed();
+
+  return implode('; ', array_unique($addresses));
+  return implode(',', array_unique($addresses));
+}
+
+/**
+ * Implements hook_mail();
+ * Build email messages.
+ */
+function fisma_user_mail($key, &$message, $params) {
+//  dpm($message, __FUNCTION__ . " $key message");
+//  dpm($params, __FUNCTION__ . " $key params");
+  $message['send'] = TRUE;
+
+  $message['body'][] = '<div class="'. drupal_html_class('fisma-user-' . $key) .'">';
+
+  switch ($key) {
+    case 'create':
+      $message['subject'] = t(variable_get('fisma_user_create_subject', 'User created'));
+      $message['body'][] = t(variable_get('fisma_user_create_body',
+        'New user !user created.'),
+        $params);
+      break;
+
+    case 'update':
+      $message['subject'] = t(variable_get('fisma_user_update_subject', 'User updated'), $params);
+      $message['body'][] = t(variable_get('fisma_user_update_body',
+        'User !user updated.'),
+        $params);
+      break;
+
+    case 'delete':
+      $message['subject'] = t(variable_get('fisma_user_delete_subject', 'User deleted'), $params);
+      $message['body'][] = t(variable_get('fisma_user_delete_body',
+        'User !user deleted.'),
+        $params);
+      break;
+
+    default:
+      drupal_set_message(t('Unknown mail key (@key).', array('@type' => $key)), 'error');
+      return;
+  }
+
+  $message['body'][] = '</div>';
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ * Add government warning to login page.
+ */
+function fisma_user_form_user_login_alter(&$form, &$form_state, $form_id) {
+//  dpm($form, $form_id);
+  // Do they want the govt warning on the login page?
+  if (variable_get('fisma_user_warning_on_login', 0)) {
+    $warning_text = variable_get('fisma_user_login_warning_text', NULL);
+
+    if (isset($warning_text['value']) && isset ($warning_text['format'])) {
+      $form['fisma_login_warning'] = array(
+        '#type' => 'item',
+        '#weight' => variable_get('fisma_user_warning_position', -1000),
+        '#markup' => check_markup($warning_text['value'], $warning_text['format']),
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ * Expose password reset interval.
+ */
+function fisma_user_form_user_admin_settings_alter(&$form, &$form_state, $form_id) {
+//  dpm($form, $form_id);
+  $form['fisma_user_password_reset'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Password reset'),
+    '#collapsible' => FALSE,
+    '#collapsed' => FALSE,
+    '#weight' => -5,
+    );
+
+  $current = variable_get('user_password_reset_timeout', 86400);
+  $form['fisma_user_password_reset']['user_password_reset_timeout'] = array(
+    '#type' => 'textfield',
+    '#title' => t('User Password Reset Interval'),
+    '#default_value' => $current,
+    '#size' => 10,
+    '#maxlength' => 8,
+    '#description' => t('Set the timeout in seconds for one-time login links.')
+      . ' ' . t('It is currently set at @secs seconds (@int).',
+        array('@secs' => $current, '@int' => format_interval($current, 2)))
+      . '<br /> ' . t('1 minute = 60, 1 hour = 3600, 6 hours = 21600, 12 hours = 43200, 1 day = 86400'),
+    '#element_validate' => array('element_validate_integer'),
+    );
+
+  // Sort the form so password_reset fits in the UI where it makes sense.
+  $form['anonymous_settings']['#weight'] = -10;
+  $form['admin_role']['#weight'] = -9;
+  $form['registration_cancellation']['#weight'] = -2;
+  $form['personalization']['#weight'] = -1;
+
+  // Validation callbacks.
+  $form['#validate'][] = 'fisma_user_reset_timeout_validate';
+//  dpm($form, $form_id);
+}
+
+/**
+ * Form validations for the user.
+ */
+function fisma_user_reset_timeout_validate($form, &$form_state) {
+  // Check to make sure the user password reset timeout is between
+  // 1 second and 1 year.
+  // Not that element_validate_integer has already verified that it is an integer.
+  if ($form_state['values']['user_password_reset_timeout'] < 1
+  || $form_state['values']['user_password_reset_timeout'] > 31536000) {
+    form_set_error('user_password_reset_timeout', t('User Password Reset Link Timeout must be between 1 and 31536000.'));
+  }
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ * Add account lifetime to user account.
+ */
+function fisma_user_form_user_profile_form_alter(&$form, &$form_state, $form_id) {
+//  dpm($form, $form_id);
+
+  $form['account']['fisma_user_account_lifetime'] = array(
+    '#type' => 'textfield',
+    '#size' => 10,
+    '#field_suffix' => ' ' . t('months'),
+    '#title' => t('Disable this account after'),
+    '#default_value' => variable_get('fisma_user_default_account_lifetime', 0),
+    '#weight' => -1,
+    '#description' => t('If specified, this account will be automatically disabled after this amount of time.')
+      . ' ' . t('Zero (0) means that the account will not have a set lifetime.'),
+    );
+
+  if (isset($form['#user']->data['fisma_user_account_expires'])) {
+    $form['account']['fisma_user_account_lifetime']['#default_value'] = NULL;
+    $form['account']['fisma_user_account_lifetime']['#description'] .= ' '
+      . t('This account is currently set to expire on !date.',
+        array('!date' => format_date($form['#user']->data['fisma_user_account_expires'], 'custom', 'l, Y F j')));
+  }
+
+  array_unshift($form['#submit'], '_fisma_user_account_submit');
+}
+
+/**
+ * Submission handler for above.
+ */
+function _fisma_user_account_submit(&$form, &$form_state) {
+//  dpm($form_state, 'submitted');
+  // Store the user's expiratin date.
+  // If the value is empty, then do nothing.
+  if ($form_state['values']['fisma_user_account_lifetime'] != '') {
+    $lifetime = $form_state['values']['fisma_user_account_lifetime'];
+    // If the value is zero, then remove the current expiration.
+    if ($lifetime == 0) {
+      unset($form_state['user']->data['fisma_user_account_expires']);
+    }
+    else {
+      // Otherwise, save it in the user object.
+//      if ($lifetime > 36) {
+        // This temporarily allows a timestamp there.
+//        $form_state['user']->data['fisma_user_account_expires'] = $lifetime;
+//      }
+//      else {
+        $form_state['user']->data['fisma_user_account_expires'] = strtotime('+ ' . $lifetime . ' months midnight');
+//      }
+    }
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function fisma_user_block_info() {
+  $blocks = array();
+
+  $blocks['fisma_login_warning'] = array(
+    'info' => t('FISMA Login Warning'),
+    'cache' => DRUPAL_CACHE_GLOBAL,
+    );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function fisma_user_block_view($delta = '') {
+  $warning_text = variable_get('fisma_user_login_warning_text', NULL);
+
+  if (isset($warning_text['value']) && isset($warning_text['format'])) {
+    $block = array();
+    $block['content'] = array(
+      '#markup' => '<div style="clear:both;" class="fisma_user_login_warning_text">'
+        . check_markup($warning_text['value'], $warning_text['format'])
+        . '</div>',
+      );
+
+    return $block;
+  }
+}
+
+/**
+ * Implements hook_cron().
+ * Deactivate users after specified inactivity.
+ */
+function fisma_user_cron() {
+  // Get the cron interval. Zero means to skip.
+  $cron_interval = variable_get('fisma_user_inactive_cron_interval', 86400);
+  if ($cron_interval) {
+    $cron_last = variable_get('fisma_user_inactive_cron_last', 0);
+    if (REQUEST_TIME < ($cron_last + $cron_interval)) {
+      return;
+    }
+  }
+
+  // Get the inactvity interval. Zero means to skip.
+  $interval = variable_get('fisma_user_inactive_users_interval', 0);
+  if ($interval) {
+    // Okay, let's find all the users who have not accessed the system
+    // in the specified amount of time.
+    $when = strtotime('-' . $interval . ' months');
+    $cron_limit = variable_get('fisma_user_inactive_cron_limit', 100);
+
+    $query = "SELECT uid FROM {users} WHERE uid > 0 AND access <= :time OR (access IS NULL AND created <= :time) ";
+    if ($cron_limit) {
+      $query .= "LIMIT " . $cron_limit;
+    }
+    $user_list = db_query($query, array(':time' => $when))->fetchCol();
+
+    foreach ($user_list as $uid) {
+      _fisma_user_deactivate_user($uid, 'inactive');
+    }
+  }
+
+  // Now let's find if any users have an expired lifetime.
+  $query = "SELECT uid, data FROM {users} WHERE data LIKE '%fisma_user_account_expires%' ";
+  $user_list = db_query($query)->fetchAllKeyed();
+  $user_list = array_map('unserialize', $user_list);
+
+  foreach ($user_list as $uid => $info) {
+    if ($info['fisma_user_account_expires'] <= REQUEST_TIME) {
+      _fisma_user_deactivate_user($uid, 'expired');
+    }
+  }
+
+  // Set now as the last run time.
+  variable_set('fisma_user_inactive_cron_last', REQUEST_TIME);
+  return;
+}
+
+/**
+ * Helper function to mark user blocked.
+ */
+function _fisma_user_deactivate_user($uid, $reason) {
+  db_update('users')
+    ->fields(array('status' => 0))
+    ->condition('uid', $uid)
+    ->execute();
+
+  // Log it?
+  if (variable_get('fisma_user_log_deactivation', 0)) {
+    watchdog('FISMA_User', 'User @uid has been blocked because the account is @reason.',
+      array('@uid' => $uid, '@reason' => $reason), WATCHDOG_INFO, l(t('view'), '/user/' . $uid));
+  }
+}
+
+/**
+ * Implements hook_token_info_alter().
+ * Provide token for password reset interval.
+ */
+function fisma_user_token_info_alter(&$data) {
+  $data['tokens']['user']['password_reset_interval'] = array(
+    'name' => t("Password reset Interval"),
+    'description' => t("The time the user has to use the password reset link."),
+    'type' => 'text',
+    );
+}
+
+/**
+ * Implements hook_tokens().
+ * Provide token for password reset interval.
+ */
+function fisma_user_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
+  switch ($type) {
+    case 'user':
+      foreach ($tokens as $name => $original) {
+        switch ($name) {
+          case 'password_reset_interval':
+            $current = variable_get('user_password_reset_timeout', 86400);
+            $replacements[$original] = format_interval($current, 2);
+            break;
+        }
+      }
+       break;
+  }
+
+  return $replacements;
+}

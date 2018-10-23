@@ -1,0 +1,341 @@
+<?php
+/**
+ * @file
+ * Allow re-ordering the field computations.
+ */
+
+/**
+ * Implements hook_help().
+ */
+function computed_field_order_help($path, $arg) {
+  $output = '';
+
+  switch ($path) {
+    case 'admin/config/content/computed_field_order':
+      $output = t('If you are not sure you need to use this module, it would be a good idea to leave.');
+      $output .= ' ';
+      $output .= '(' . l(t('more'), 'admin/help/computed_field_order') . ')';
+      break;
+
+    case 'admin/help#computed_field_order':
+      $output .= '<p>';
+      $output .= t('The Computed Field Order module helps to deal with the situation of fields being
+        computed in the order in which they are found in the "field_config_instance" database table.');
+      $output .= ' ';
+      $output .= t('Since that table is largely populated in the order in which you add fields to
+        an entity, one may control the order of computation by adding fields in the order desired.');
+      $output .= ' ';
+      $output .= t('Occasionally, however, it may be necessary to have a later-added field computed
+        before an existing field, such as when a field containing data must be deleted and re-added.');
+      $output .= ' ';
+      $output .= t('The easiest solution to this is to delete and redefine the subsequent fields,
+        thereby preserving the database integrity.');
+      $output .= ' ';
+      $output .= t('But if there are a lot of uses of that field and re-saving the content is difficult,
+        then this module may help you restore the desired computation order.');
+      $output .= '</p>';
+      $output .= '<p>';
+      $output .= t('If there is any way to take the manual solution above, we reccommend doing so.');
+      $output .= ' ';
+      $output .= t('You are strongly urged to back up your database before using this module.');
+      $output .= ' ';
+      $output .= t('We also suggest testing your site after using it, particularly the fields you
+        are altering.');
+      $output .= '</p>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function computed_field_order_menu() {
+  $items = array();
+
+  $items['admin/config/content/computed_field_order'] = array(
+    'title' => 'Computed Field Order',
+    'description' => 'Change the order of Computed Field computations',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('computed_field_order_settings_form', 4, 5),
+    );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function computed_field_order_theme() {
+  return array(
+    'computed_field_order_settings_form' => array(
+      'render element' => 'form',
+      ),
+    );
+}
+
+/**
+ * Menu callback: Settings form.
+ */
+function computed_field_order_settings_form($form, &$form_state, $entity_type = NULL, $bundle = NULL) {
+  // Let's get a list of all the entity_type/bundles that have computed fields in them.
+  $query = db_select('field_config', 'fc');
+  $query->innerJoin('field_config_instance', 'fci', 'fci.field_id = fc.id');
+  $query->condition('fc.type', 'computed');
+  $query->condition('fc.deleted', 0);
+  $query->fields('fci', array('entity_type', 'bundle', 'data'))
+    ->orderBy('fci.entity_type')
+    ->orderBy('fci.bundle');
+  $result = $query->execute();
+
+  $items = array();
+  foreach ($result as $row) {
+    // Build a multi-level list.
+    if (isset($items[$row->entity_type])) {
+      $classes = array(
+        'computed_field_order',                // Standard class
+        drupal_html_class($row->entity_type),  // and entity_type
+        drupal_html_class($row->bundle),       // and bundle.
+        );
+
+      // It was serendipitous, but using the bundle name as a key prevents duplicates.
+      // using Distinct in the query resulted in missed data.
+      $items[$row->entity_type]['children'][$row->bundle] = array(
+        'data' => l($info['bundles'][$row->bundle]['label'],
+          "admin/config/content/computed_field_order/$row->entity_type/" . $row->bundle),
+        'class' => $classes,
+        );
+    }
+    else {
+      $info = entity_get_info($row->entity_type);
+      $items[$row->entity_type] = array(
+        'data' => check_plain($info['label']),
+        'children' => array(),
+        );
+    }
+  }
+//  dpm($items, 'Computed Field Usage');
+
+  // Show the list so they can select which one to order.
+  $form['intro'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Computed Field Usage'),
+    '#collapsible' => TRUE,
+    '#collapsed' => !empty($entity_type),
+    '#description' => t('These entity_type / bundle types contain computed fields.'),
+    );
+
+  $form['intro']['types'] = array(
+    '#type' => 'markup',
+    '#markup' => theme('item_list', array('items' => $items)),
+    );
+
+  $form['intro']['description'] = array(
+    '#type' => 'markup',
+    '#markup' => '<div class="description">'
+      . t('Click on a bundle name to expose the computed fields for that bundle.')
+      . '</div>',
+    );
+
+  // If an entity_type is present in the URL, then we show those fields.
+  if (!empty($entity_type)) {
+    $info = entity_get_info($entity_type);
+
+    $form['#title'] = t("Computed Fields in @type: @bundle.",
+      array(
+        '@type' => $info['label'],
+        '@bundle' => $info['bundles'][$bundle]['label'],
+        ));
+
+    $form['#subtitle'] = t('These computed fields are in this entity_type / bundle.');
+
+    // Get the instance data.
+    $field_types = array(
+      'computed',
+      'field_collection',
+//      'list_boolean',
+      );
+    $query = db_select('field_config', 'fc');
+    $query->innerJoin('field_config_instance', 'fci', 'fci.field_id = fc.id');
+    $query->condition('fc.type', $field_types, 'IN');
+    $query->condition('fci.deleted', 0);
+    $query->condition('fci.entity_type', $entity_type);
+    $query->condition('fci.bundle', $bundle);
+    $query->fields('fci', array('id', 'field_name'));
+    $query->fields('fc', array('module'));
+    $query->orderBy('fci.id');
+    $result = $query->execute();
+
+    $form['#entity_type'] = $entity_type;
+    $form['#bundle'] = $bundle;
+
+    // Need this to get all the values back.
+    $form['fields']['#tree'] = TRUE;
+    $ids = array();
+
+    foreach ($result as $row) {
+      $instance = field_info_instance($entity_type, $row->field_name, $bundle);
+      $title = t('@label (@name) @module',
+        array(
+          '@label' => $instance['label'],
+          '@name' => $row->field_name,
+          '@module' => $row->module,
+          ));
+
+      $ids[$row->field_name] = $row->id;
+
+      $form['fields'][$row->field_name] = array(
+        'id' => array(
+          '#type' => 'markup',
+          '#markup' => $row->id,
+          ),
+        'name' => array(
+          '#type' => 'markup',
+          '#markup' => $title,
+          ),
+        'weight' => array(
+          '#type' => 'weight',
+          '#title' => t('Weight'),
+          '#delta' => 100,   // @TODO: This needs to be more than the number of fields.
+          '#default_value' => $row->id,
+          '#title-display' => 'invisible',
+          '#attributes' => array('class' => array('computed-field-order-weight'))
+          ),
+        );
+    }
+
+    $form['#ids'] = $ids;
+
+    $form['note'] = array(
+      '#type' => 'markup',
+      '#markup' => '<div class="description">'
+        . t('Note: Changing the order of field computation in this bundle will not affect
+          the order in any other bundles in which the same fields may appear.')
+        . '</div>',
+      );
+
+    $form['actions'] = array('#type' => 'actions');
+    $form['actions']['submit'] = array('#type' => 'submit', '#value' => t("Change order"));
+  }
+
+//  dpm($form, 'form');
+  return $form;
+}
+
+/**
+ * Theme the settings form.
+ * Make it come out as a draggable table.
+ */
+function theme_computed_field_order_settings_form($variables) {
+  $form = $variables['form'];
+  $output = '';
+
+  $output .= drupal_render($form['intro']);
+
+  if (isset($form['#title'])) {
+    $output .= '<h2>' . $form['#title'] . '</h2>';
+    $output .= '<div class="description">' . $form['#subtitle'] . '</div>';
+
+    $table = array(
+      'rows' => array(),
+      'header' => array(
+        t('Id'),
+        t('Field Name'),
+        t('Weight'),
+        ),
+      'attributes' => array('id' => 'computed-field-order-settings'),
+      );
+
+    // Iterate over each element in our form['fields'] array.
+    foreach (element_children($form['fields']) as $field_name) {
+      $table['rows'][] = array(
+        'data' => array(
+          drupal_render($form['fields'][$field_name]['id']),
+          drupal_render($form['fields'][$field_name]['name']),
+          drupal_render($form['fields'][$field_name]['weight']),
+          ),
+        'class' => array('draggable'),
+        );
+    }
+
+    $output .= theme('table', $table);
+    drupal_add_tabledrag('computed-field-order-settings', 'order', 'sibling', 'computed-field-order-weight');
+  }
+
+  $output .= drupal_render_children($form);
+  return $output;
+}
+
+/**
+ * Submission handler: Settings form.
+ */
+function computed_field_order_settings_form_submit($form, &$form_state) {
+  // Recover the IDs.
+  $ids = $form['#ids'];
+
+  // We don't really care about the weight, we just use it to sort.
+  $list = array();
+  foreach ($form_state['values']['fields'] as $field_name => $stuff) {
+    $list[$stuff['weight']] = array(
+      'name' => $field_name,
+      'id' => $ids[$field_name],
+      );
+  }
+  ksort($list);
+
+  // Get all the fields in an array so we can get the data later.
+  $query = db_select('field_config_instance', 'fci')
+    ->fields('fci');
+  $query->condition('id', $ids, 'IN');
+  $fields = $query->execute()->fetchAllAssoc('id');
+
+  // Make this a db transaction.
+  $transaction = db_transaction();
+  try {
+    foreach ($list as $order => $item) {
+      // Get the field ID from teh array.
+      $id = $item['id'];
+
+      // Get the current definition.
+      $row = $fields[$id];
+
+      // Update the current instance to show it as deleted.
+      // Note that the cache clearing below will probably actually delete this instance.
+      $update = db_update('field_config_instance')
+        ->fields(array('deleted' => 1))
+        ->condition('id', $id)
+        ->execute();
+
+      // Add a new instance with the old one's data.
+      $insert = db_insert('field_config_instance')
+        ->fields(array('field_id', 'field_name', 'entity_type', 'bundle', 'data', 'deleted'))
+        ->values(array(
+          'field_id' => $row->field_id,
+          'field_name' => $row->field_name,
+          'entity_type' => $row->entity_type,
+          'bundle' => $row->bundle,
+          'data' => $row->data,
+          'deleted' => 0,
+          ))
+        ->execute();
+    }
+  }
+
+  // Handle errors.
+  catch (Exception $e) {
+    $transaction->rollback();
+    watchdog_exception('computed_field_order', $e);
+    drupal_set_message(t('A serious error occurred while updating the database. The changes have been rolled back.'), 'error');
+  }
+
+  // @TODO: commit transaction.
+  unset($transaction);
+
+  drupal_set_message(t('The computed field order has been saved'));
+
+  // Clear the cache so it can be properly rebuilt.
+  field_cache_clear();
+
+  $form_state['redirect'] = 'admin/config/content/computed_field_order';
+}

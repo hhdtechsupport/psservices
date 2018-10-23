@@ -1,0 +1,361 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the purlieu module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function purlieu_schema() {
+  $schema['purlieu'] = array(
+    'description' => t('Base table for Purlieu.'),
+    'fields' => array(
+      'id' => array(
+        'description' => 'The id of the purlieu.',
+        'type' => 'serial',
+        'not null' => FALSE,
+        'unsigned' => TRUE,
+        ),
+      'vid' => array(
+        'description' => 'The version id of the purlieu.',
+        'type' => 'int',
+        'length' => 11,
+        'not null' => FALSE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        ),
+      'uid' => array(
+        'description' => 'The user who created the purlieu.',
+        'type' => 'int',
+        'length' => 11,
+        'not null' => FALSE,
+        'default' => 0,
+        ),
+      'created' => array(
+        'description' => 'The date the purlieu was created.',
+        'type' => 'int',
+        'length' => 11,
+        'not null' => FALSE,
+        'default' => 0,
+        ),
+      'changed' => array(
+        'description' => 'The date the purlieu was last updated.',
+        'type' => 'int',
+        'length' => 11,
+        'not null' => FALSE,
+        'default' => 0,
+        ),
+      'name' => array(
+        'description' => 'The purlieu name.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      'organization' => array(
+        'description' => 'The organization for this purlieu.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      'employee_type' => array(
+        'description' => 'The employee type for this purlieu.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      'location' => array(
+        'description' => 'The location for this purlieu.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      'rent' => array(
+        'description' => 'The Rent overhead for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'telecom' => array(
+        'description' => 'The Telecom overhead for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'vhs' => array(
+        'description' => 'The VHS percentage for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'fringe' => array(
+        'description' => 'The Fringe percentage for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'indirect' => array(
+        'description' => 'The Indirect Overhead rate for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'fee' => array(
+        'description' => 'The Fee percentage on Costs for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'actfee' => array(
+        'description' => 'The Fee percentage on Actuals for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'formula' => array(
+        'description' => 'The formula to use for this purlieu.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      ),
+    'primary key' => array('id'),
+    );
+
+  $schema['purlieu_revision'] = purlieu_define_revision_table();
+
+
+  return $schema;
+}
+
+function purlieu_define_revision_table() {
+  return array(
+    'description' => t('Revision table for Purlieu.'),
+    'fields' => array(
+      'id' => array(
+        'description' => 'The id of the purlieu.',
+        'type' => 'int',
+        'length' => 11,
+        'not null' => FALSE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        ),
+      'vid' => array(
+        'description' => 'The version id of the purlieu.',
+        'type' => 'serial',
+        'not null' => FALSE,
+        'unsigned' => TRUE,
+        ),
+      'uid' => array(
+        'description' => 'The user who created the purlieu.',
+        'type' => 'int',
+        'length' => 11,
+        'not null' => FALSE,
+        'default' => 0,
+        ),
+      'created' => array(
+        'description' => 'The date the purlieu was created.',
+        'type' => 'int',
+        'length' => 11,
+        'not null' => FALSE,
+        'default' => 0,
+        ),
+      'changed' => array(
+        'description' => 'The date the purlieu was last updated.',
+        'type' => 'int',
+        'length' => 11,
+        'not null' => FALSE,
+        'default' => 0,
+        ),
+      'name' => array(
+        'description' => 'The purlieu name.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      'organization' => array(
+        'description' => 'The organization for this purlieu.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      'employee_type' => array(
+        'description' => 'The employee type for this purlieu.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      'location' => array(
+        'description' => 'The location for this purlieu.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      'rent' => array(
+        'description' => 'The Rent overhead for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'telecom' => array(
+        'description' => 'The Telecom overhead for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'vhs' => array(
+        'description' => 'The VHS percentage for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'fringe' => array(
+        'description' => 'The Fringe percentage for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'indirect' => array(
+        'description' => 'The Indirect Overhead rate for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'fee' => array(
+        'description' => 'The Fee percentage for Costs for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'actfee' => array(
+        'description' => 'The Fee percentage on Actuals for this purlieu.',
+        'type' => 'numeric',
+        'size' => 'normal',
+        'precision' => 10,
+        'scale' => 2,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'formula' => array(
+        'description' => 'The formula to use for this purlieu.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      ),
+    'primary key' => array('vid'),
+    );
+}
+
+/**
+ * Add versioning.
+ */
+function purlieu_update_7000() {
+  // Add the vid to the base table.
+  db_add_field('purlieu', 'vid', array(
+    'description' => 'The version id of the purlieu.',
+    'type' => 'int',
+    'length' => 11,
+    'not null' => FALSE,
+    'unsigned' => TRUE,
+    'default' => 0,
+    )
+  );
+
+  // Create the revision table.
+  db_create_table('purlieu_revision', purlieu_define_revision_table());
+
+  return 'Revisioning has been added to Purlieus.';
+}
+
+/**
+ * Add version ids.
+ */
+function purlieu_update_7001() {
+  $purlieus = db_query("SELECT * FROM {purlieu}");
+  foreach ($purlieus as $x => $p) {
+    $purlieu = (array) $p;
+    $purlieu['vid'] = $purlieu['id'];
+    db_insert('purlieu_revision')->fields($purlieu)->execute();
+    db_update('purlieu')->fields(array('vid' => $purlieu['id']))->condition('id', $purlieu['id'])->execute();
+  }
+}
+
+/**
+ * Add Actuals Fees.
+ */
+function purlieu_update_7002() {
+  $oldfee = array(
+    'description' => 'The Fee percentage on Costss for this purlieu.',
+    'type' => 'numeric',
+    'size' => 'normal',
+    'precision' => 10,
+    'scale' => 2,
+    'not null' => TRUE,
+    'default' => 0,
+    );
+  $actfee = array(
+    'description' => 'The Fee percentage on Actuals for this purlieu.',
+    'type' => 'numeric',
+    'size' => 'normal',
+    'precision' => 10,
+    'scale' => 2,
+    'not null' => TRUE,
+    'default' => 0,
+    );
+  db_add_field('purlieu', 'actfee', $actfee);
+  db_add_field('purlieu_revision', 'actfee', $actfee);
+  db_change_field('purlieu', 'fee', 'fee', $oldfee);
+  db_change_field('purlieu_revision', 'fee', 'fee', $oldfee);
+
+  return 'Actuals Fees has been added to Purlieus.';
+}

@@ -1,0 +1,220 @@
+<?php
+/**
+ * @file
+ * Makes a child node according to rules.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function purlieu_permission() {
+  $perms = array(
+    'access purlieus' => array(
+      'title' => t('Access Purlieus'),
+      'description' => t('View a purlieu.'),
+      ),
+    'administer purlieus' => array(
+      'title' => t('Administer Purlieus'),
+      'description' => t('Control what purlieus exist.'),
+      ),
+    );
+
+  return $perms;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function purlieu_menu() {
+  $items = array();
+
+  $items['admin/structure/purlieu'] = array(
+    'title' => 'Purlieus',
+    'page callback' => 'purlieu_list',
+    'access arguments' => array('administer purlieus'),
+    'file' => 'purlieu.admin.inc',
+    );
+
+  $items['purlieu/%purlieu'] = array(
+    'title' => 'Purlieus',
+    'page callback' => 'purlieu_view_entity',
+    'page arguments' => array(1),
+    'load arguments' => array('purlieu'),
+    'access arguments' => array('access purlieus'),
+    );
+
+  $items['purlieu/%purlieu/view'] = array(
+    'title' => 'View',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+
+  $items['purlieu/%purlieu/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('purlieu_form', 1),
+    'load arguments' => array('purlieu'),
+    'access arguments' => array('administer purlieus'),
+    'file' => 'purlieu.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    );
+
+  $items['purlieu/%purlieu/calculate'] = array(
+    'title' => 'Calculate',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('purlieu_calculate', 1),
+    'load arguments' => array('purlieu'),
+    'access arguments' => array('administer purlieus'),
+    'file' => 'purlieu.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+    );
+
+  $items['purlieu/%purlieu/revisions'] = array(
+    'title' => 'Revisions',
+    'page callback' => 'purlieu_revision_overview',
+    'page arguments' => array(1),
+    'load arguments' => array('purlieu'),
+    'access callback' => '_purlieu_revision_access',
+    'access arguments' => array(1),
+    'file' => 'purlieu.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    );
+
+  return $items;
+}
+
+/**
+ * Implements hook_help($path, $args).
+ */
+function purlieu_help($path, $args) {
+  switch ($path) {
+    case 'admin/help#purlieu':
+      return '<p>'
+        . t('We need something about the Purlieu module.')
+        . ' '
+        . t('This manages constants to be used in adding loading information to labor.')
+        . '</p>';
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function purlieu_theme() {
+  return array(
+    'purlieu_form' => array(
+       'render element' => 'form',
+       'file' => 'purlieu.admin.inc',
+       ),
+    );
+}
+
+/**
+ * Menu autoloader for %purlieu.
+ */
+function purlieu_load($id) {
+  $entity = entity_load('purlieu', array($id));
+  return array_pop($entity);
+}
+
+/**
+ * Menu access for purlieu revisions.
+ */
+function _purlieu_revision_access($purlieu) {
+  if (user_access('access purlieus')) {
+    $count = db_query("SELECT COUNT(vid) - 1 FROM {purlieu_revision} WHERE id = :id", array(':id' => $purlieu->identifier()))->fetchField();
+    return ($count > 0);
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Implements hook_admin_paths().
+ * Keep display in normal theme.
+ */
+function purlieu_admin_paths_alter(&$paths) {
+  $paths['admin/structure/purlieu/*'] = FALSE;
+}
+
+/**
+ * Implements hook_entity_info().
+ * See http://drupal.org/node/1026420 and http://drupal.org/node/878804
+ * for more documentation.
+ */
+function purlieu_entity_info() {
+  $info = array();
+
+  $info['purlieu'] = array(
+    // Human readable label.
+    'label' => t('Purlieu'),
+    'plural label' => t('Purlieus'),
+    // Table for storing entity data, defined in hook_schema().
+    'base table' => 'purlieu',
+    'revision table' => 'purlieu_revision',
+    // This helps Entity API know how to query your custom table.
+    'entity keys' => array(
+      'id' => 'id',
+      'label' => 'name',
+      'revision' => 'vid',
+      ),
+    'uri callback' => 'entity_class_uri',
+    'entity class' => 'Purlieu',
+    'metadata controller class' => 'PurlieuMetadataController',
+    'controller class' => 'PurlieuController',
+    'extra fields controller class' => 'EntityDefaultExtraFieldsController',
+    'admin ui' => array(
+      'path' => 'admin/structure/purlieu',
+      'controller class' => 'EntityDefaultUIController',
+      'menu wildcard' => '%purlieu',
+      'file' => 'purlieu.admin.inc',
+      ),
+    'module' => 'purlieu',
+    'access callback' => 'purlieu_access_callback',
+    'fieldable' => TRUE,
+    'bundles' => array(
+      'purlieu' => array(
+        'label' => t('Purlieu'),
+        'admin' => array(
+        'path' => 'admin/structure/purlieu',
+        'access arguments' => array('administer purlieus'),
+        ),
+      ),
+    ),
+    'views controller class' => 'EntityDefaultViewsController',
+    );
+
+  return $info;
+}
+
+/**
+ * Check access permissions for family entities.
+ */
+function purlieu_access_callback($op, $fentity = NULL, $account = NULL) {
+  return TRUE;
+}
+
+/**
+ * Menu callback.
+ */
+function purlieu_view_entity($entity) {
+  drupal_set_title($entity->name);
+  return entity_view('purlieu', array($entity));
+}
+
+/**
+ * Load a specific revision.
+ */
+function purlieu_load_revision($vid) {
+  $query = "SELECT * FROM {purlieu_revision} WHERE vid = :vid";
+  $result = db_query($query, array(':vid' => $vid))->fetchAssoc();
+  // If we got something, return it as a Purlieu object.
+  if ($result) {
+    return entity_create('purlieu', $result);
+  }
+  // Oops, we couldn't find the requested version.
+  drupal_set_message(t('Attempt to load a non-existent Purlieu version (@ver)', array('@ver' => $vid)), 'error', FALSE);
+  return FALSE;
+}
